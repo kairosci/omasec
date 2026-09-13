@@ -1,6 +1,8 @@
 #!/bin/bash
 
 SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
+PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
+LOG="${OMASEC_LOG:-$PROJECT_DIR/setup.log}"
 if [[ "${OMASEC_LOG_STDOUT:-0}" -eq 0 ]]; then
     exec > >(tee -a "$LOG") 2>&1
 fi
@@ -170,7 +172,7 @@ for user_home in /home/*; do
 done
 
 log "Installing per-theme folder color hook"
-HOOK_SRC="$SCRIPT_DIR/hooks/theme-set.d/folder-color"
+HOOK_SRC="$PROJECT_DIR/hooks/theme-set.d/folder-color"
 TELA_PLACES="/usr/share/icons/Tela-dark/scalable/places"
 for user_home in /home/*; do
     [[ -d "$user_home" ]] || continue

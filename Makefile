@@ -10,10 +10,10 @@ help:
 	@echo "clean       Remove setup log"
 
 setup:
-	sudo bash setup.sh
+	sudo bash scripts/setup.sh
 
 verify:
-	bash verify.sh
+	bash scripts/verify.sh
 
 hook:
 	@mkdir -p ~/.config/omarchy/hooks/theme-set.d
