@@ -53,7 +53,8 @@ make icons
 | **Authentication & PAM** | faillock lockout protection (5 attempts / 900s), strict pwquality rules, access.conf ACLs |
 | **SSH** | Root login disabled, password auth disabled, strict modern ciphers (ChaCha20, AES-GCM), client hardening drop-in |
 | **Sandboxing & MAC** | AppArmor enforcement profiles for `sshd`, `useradd`, `curl`, and `wget` |
-| **System Services** | `sshd` systemd drop-in (`ProtectSystem=strict`, `ProtectHome=yes`, `NoNewPrivileges=yes`), NetworkManager security hardening (`conf.d/security.conf`), LLMNR/mDNS disabled |
+| **System Services** | `sshd` systemd drop-in (`ProtectSystem=strict`, `ProtectHome=yes`, `NoNewPrivileges=yes`), NetworkManager left unmodified (no `conf.d/security.conf` overrides), LLMNR/mDNS disabled |
+| **Desktop Cleanup** | Removes shipped omarchy webapp shortcuts (Discord, WhatsApp, YouTube, X, Google apps, HEY, Zoom) and restores the Yaru icon theme |
 | **Security Stack** | Pre-configured `auditd`, `fail2ban`, `usbguard`, `clamav`, `lynis`, and `rkhunter` with weekly automated audits |
 | **Hardware & TPM** | Automatic optimization of TPM NvPCR allocation to prevent NV index space exhaustion |
 | **Storage & Memory** | `nosuid,nodev,noexec` tmpfs mountings on `/tmp` and `/var/tmp`, `/run/shm` protections, strict umask `077` |

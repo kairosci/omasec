@@ -38,12 +38,14 @@ aur_verified_install() {
     chown "$PRIMARY_USER":"$PRIMARY_USER" "$tmp"
     sudo -u "$PRIMARY_USER" bash -c \
         "cd '$tmp' && git clone --quiet --depth 1 https://aur.archlinux.org/$pkg.git src && cd src && \
-         grep -q '^validpgpkeys=' PKGBUILD" || \
-        err "AUR package '$pkg' is not cryptographically verified (no validpgpkeys); refusing to install"
+         { grep -q '^validpgpkeys=' PKGBUILD || \
+           { grep -q '^sha256sums=' PKGBUILD && ! grep -q 'SKIP' PKGBUILD && \
+             grep -qE '^# Maintainer: [^< ]+ <[^ ]+@[^ ]+>' PKGBUILD; }; }" || \
+        err "AUR package '$pkg' has no verified integrity (needs validpgpkeys, or full sha256sums from a named maintainer); refusing to install"
     sudo -u "$PRIMARY_USER" bash -c \
         "cd '$tmp/src' && makepkg --noconfirm" || {
         rm -rf "$tmp"
-        err "AUR package '$pkg' failed signature/source verification during build; refusing to install"
+        err "AUR package '$pkg' failed source verification during build; refusing to install"
     }
     f=$(find "$tmp/src" -name '*.pkg.tar.*' -type f 2>/dev/null | head -1)
     [[ -n "$f" ]] || { rm -rf "$tmp"; err "AUR package '$pkg' produced no artifact after verified build"; }
@@ -99,6 +101,17 @@ if ! pacman -Q foot &>/dev/null && ! command -v foot &>/dev/null; then
         rm -f "$u_home/.local/share/applications/foot-server.desktop" 2>/dev/null || warn "foot-server desktop remove skipped for $u_home"
     done
 fi
+
+log "Removing default webapps"
+for webapp in Basecamp "Google Contacts" "Google Maps" "Google Messages" "Google Photos" Discord HEY WhatsApp X YouTube Zoom; do
+    rm -f "/usr/share/omarchy/applications/$webapp.desktop"
+done
+for u_home in /home/*; do
+    [[ -d "$u_home" ]] || continue
+    for webapp in Basecamp "Google Contacts" "Google Maps" "Google Messages" "Google Photos" Discord HEY WhatsApp X YouTube Zoom; do
+        rm -f "$u_home/.local/share/applications/$webapp.desktop"
+    done
+done
 
 log "Installing brave-origin"
 if ! pacman -Q brave-origin-bin &>/dev/null; then
@@ -647,18 +660,8 @@ ProcessSizeMax=0
 COREDUMP
 systemctl daemon-reexec 2>/dev/null || warn "daemon-reexec skipped"
 
-log "Securing NetworkManager"
-mkdir -p /etc/NetworkManager/conf.d
-cat > /etc/NetworkManager/conf.d/security.conf << 'NM'
-[main]
-no-auto-default=*
-
-[connection]
-ipv4.dhcp-timeout = 10
-
-[logging]
-level=INFO
-NM
+log "Ensuring NetworkManager is not overridden"
+rm -f /etc/NetworkManager/conf.d/security.conf
 
 log "Configuring pacman security"
 cat > /etc/pacman.d/hooks/99-verify-inserted-keyrings.hook << 'HOOK'

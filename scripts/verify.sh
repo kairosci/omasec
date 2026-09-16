@@ -106,7 +106,7 @@ check "avahi-daemon disabled"   "! systemctl is-enabled avahi-daemon.service 2>/
 check "cups disabled"           "! systemctl is-enabled cups.service 2>/dev/null | grep -q '^enabled$'"
 check "bluetooth enabled"       "systemctl is-enabled bluetooth.service 2>/dev/null | grep -q '^enabled$'"
 check "sshd service hardened"   "[[ -f /etc/systemd/system/sshd.service.d/hardened.conf ]]"
-check "NetworkManager hardened" "[[ -f /etc/NetworkManager/conf.d/security.conf ]]"
+check "NetworkManager not overridden" "! [[ -f /etc/NetworkManager/conf.d/security.conf ]]"
 check "resolved LLMNR disabled" "[[ -f /etc/systemd/resolved.conf.d/hardened.conf ]]"
 
 section "Security tooling"
@@ -131,6 +131,7 @@ section "System Health & Parity"
 check "TPM NvPCR verity removed" "! [[ -f /usr/lib/nvpcr/verity.nvpcr ]]"
 check "voxtype daemon inactive if missing" "! systemctl --user is-active voxtype 2>/dev/null | grep -q '^active$'"
 check "foot launcher clean when missing" "! command -v foot &>/dev/null && ! [[ -f \$HOME/.local/share/applications/foot.desktop ]]"
+check "default webapps removed" "! grep -rlE 'omarchy-(launch-webapp|webapp-handler)' /usr/share/omarchy/applications 2>/dev/null"
 
 section "Scheduling"
 check "weekly security audit" "[[ -f /etc/cron.weekly/security-audit.sh && -x /etc/cron.weekly/security-audit.sh ]]"
