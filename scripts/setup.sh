@@ -59,7 +59,7 @@ DEBLOAT=(
     chromium
     neovim
     omarchy-nvim
-    yaru-icon-theme
+    mpv
 )
 
 log "Debloating"
@@ -122,58 +122,70 @@ for user_home in /home/*; do
     chown "$_user":"$_user" "$user_home/.local/state/omarchy/defaults/editor" 2>/dev/null || warn "chown editor failed for $_user"
 done
 
-
-
-log "Installing Tela icon theme"
-if [[ ! -d /usr/share/icons/Tela-dark ]]; then
-    TELATmp=$(mktemp -d)
-    chmod 700 "$TELATmp"
-    curl -sL "https://api.github.com/repos/vinceliuice/Tela-icon-theme/tarball/2026-07-07" \
-        -o "$TELATmp/tela.tar.gz" || err "Tela download failed"
-    tar -xzf "$TELATmp/tela.tar.gz" -C "$TELATmp" || err "Tela extraction failed"
-    TELADIR=$(find "$TELATmp" -maxdepth 1 -type d -name "vinceliuice-Tela-icon-theme-*" | head -1)
-    [[ -d "$TELADIR" ]] || err "Tela source directory not found"
-    bash "$TELADIR/install.sh" -d /usr/share/icons || warn "Tela install script returned non-zero"
-    rm -rf "$TELATmp"
+log "Installing totem (GNOME Videos)"
+if ! pacman -Q totem &>/dev/null; then
+    pacman -S --noconfirm --needed totem
 fi
 
-log "Switching omarchy theme icons to Tela-Dark for every user"
+log "Setting default media player to totem"
+for user_home in /home/*; do
+    [[ -d "$user_home" ]] || continue
+    _user=$(basename "$user_home")
+    mkdir -p "$user_home/.local/state/omarchy/defaults"
+    printf 'totem\n' > "$user_home/.local/state/omarchy/defaults/media-player"
+    chown "$_user":"$_user" "$user_home/.local/state/omarchy/defaults/media-player" 2>/dev/null || warn "chown media-player failed for $_user"
+done
+
+
+log "Restoring Yaru icon theme for every user"
 for user_home in /home/*; do
     [[ -d "$user_home" ]] || continue
     _user=$(basename "$user_home")
     _uid=$(id -u "$_user" 2>/dev/null) || continue
-    mkdir -p "$user_home/.config/omarchy/themes"
     for theme_dir in /usr/share/omarchy/themes/*/; do
         slug=$(basename "$theme_dir")
-        if grep -q '^Yaru' "$theme_dir/icons.theme" 2>/dev/null; then
-            mkdir -p "$user_home/.config/omarchy/themes/$slug"
-            for file in "$theme_dir"*; do
-                [[ -f "$file" ]] || continue
-                fname=$(basename "$file")
-                [[ "$fname" == "icons.theme" ]] && continue
-                case "$fname" in
-                    *.png|*.jpg|*.jpeg|*.gif|*.bmp|*.webp|*.svg|*.ico)
-                        cp "$file" "$user_home/.config/omarchy/themes/$slug/$fname"
-                        ;;
-                    *)
-                        ln -sfn "$file" "$user_home/.config/omarchy/themes/$slug/$fname"
-                        ;;
-                esac
-            done
-            printf 'Tela-dark\n' > "$user_home/.config/omarchy/themes/$slug/icons.theme"
-            chown -R "$_user":"$_user" "$user_home/.config/omarchy/themes/$slug"
+        override="$user_home/.config/omarchy/themes/$slug/icons.theme"
+        if [[ -f "$override" ]] && grep -q 'Tela' "$override" 2>/dev/null; then
+            rm -f "$override" || warn "removing Tela override failed for $slug/$_user"
         fi
     done
+    _theme_name=$(cat "$user_home/.local/state/omarchy/current/theme.name" 2>/dev/null | tr '[:upper:]' '[:lower:]' | tr ' ' '-')
+    _yaru_variant=$(
+        case "$_theme_name" in
+            catppuccin)        echo "Yaru-blue-dark" ;;
+            catppuccin-latte)  echo "Yaru-blue" ;;
+            tokyo-night)       echo "Yaru-purple-dark" ;;
+            nord)              echo "Yaru-blue-dark" ;;
+            gruvbox)           echo "Yaru-wartybrown-dark" ;;
+            everforest)        echo "Yaru-olive-dark" ;;
+            kanagawa)          echo "Yaru-red-dark" ;;
+            miasma)            echo "Yaru-dark" ;;
+            hackerman)         echo "Yaru-olive-dark" ;;
+            ethereal)          echo "Yaru-purple-dark" ;;
+            lumon)             echo "Yaru-blue-dark" ;;
+            ristretto)         echo "Yaru-red-dark" ;;
+            osaka-jade)        echo "Yaru-prussiangreen-dark" ;;
+            solitude)          echo "Yaru-dark" ;;
+            retro-82)          echo "Yaru-yellow-dark" ;;
+            rose-pine)         echo "Yaru-magenta-dark" ;;
+            white)             echo "Yaru" ;;
+            flexoki-light)     echo "Yaru-yellow" ;;
+            last-horizon)      echo "Yaru-dark" ;;
+            lupine)            echo "Yaru-purple-dark" ;;
+            matte-black)       echo "Yaru-wartybrown-dark" ;;
+            vantablack)        echo "Yaru-dark" ;;
+            *)                 echo "Yaru-dark" ;;
+        esac
+    )
     if [[ -e "/run/user/$_uid/bus" ]]; then
         sudo -u "$_user" \
             XDG_RUNTIME_DIR="/run/user/$_uid" \
-            gsettings set org.gnome.desktop.interface icon-theme Tela-dark 2>/dev/null || warn "gsettings icon-theme skipped for $_user"
+            gsettings set org.gnome.desktop.interface icon-theme "$_yaru_variant" 2>/dev/null || warn "gsettings icon-theme skipped for $_user"
     fi
 done
 
 log "Installing per-theme folder color hook"
 HOOK_SRC="$PROJECT_DIR/hooks/theme-set.d/folder-color"
-TELA_PLACES="/usr/share/icons/Tela-dark/scalable/places"
 for user_home in /home/*; do
     [[ -d "$user_home" ]] || continue
     _user=$(basename "$user_home")
@@ -182,47 +194,7 @@ for user_home in /home/*; do
     cp "$HOOK_SRC" "$_hook_dir/folder-color"
     chmod +x "$_hook_dir/folder-color"
     chown -R "$_user":"$_user" "$_hook_dir"
-
-    # Apply folder color for the user's current theme
-    _theme_name=$(cat "$user_home/.local/state/omarchy/current/theme.name" 2>/dev/null | tr '[:upper:]' '[:lower:]' | tr ' ' '-')
-    [[ -z "$_theme_name" ]] && continue
-    _color=$(
-        case "$_theme_name" in
-            catppuccin)              echo "blue" ;;
-            catppuccin-latte)        echo "blue" ;;
-            tokyo-night)             echo "purple" ;;
-            nord)                    echo "blue" ;;
-            gruvbox)                 echo "orange" ;;
-            everforest)              echo "green" ;;
-            kanagawa)                echo "pink" ;;
-            miasma)                  echo "grey" ;;
-            hackerman)               echo "green" ;;
-            ethereal)                echo "purple" ;;
-            lumon)                   echo "blue" ;;
-            ristretto)               echo "red" ;;
-            osaka-jade)              echo "green" ;;
-            solitude)                echo "grey" ;;
-            retro-82)                echo "orange" ;;
-            rose-pine)               echo "pink" ;;
-            white)                   echo "grey" ;;
-            flexoki-light)           echo "blue" ;;
-            last-horizon)            echo "grey" ;;
-            lupine)                  echo "purple" ;;
-            matte-black)             echo "orange" ;;
-            vantablack)              echo "grey" ;;
-            *)                       echo "blue" ;;
-        esac
-    )
     sudo -u "$_user" bash "$_hook_dir/folder-color" 2>/dev/null || warn "folder-color hook run failed for $_user"
-    if [[ -d "$TELA_PLACES" && -f "$TELA_PLACES/${_color}-folder.svg" ]]; then
-        for src in "$TELA_PLACES/${_color}-folder"*.svg; do
-            [[ -f "$src" ]] || continue
-            base=$(basename "$src")
-            suffix="${base#"${_color}-folder"}"
-            cp "$src" "$TELA_PLACES/default-folder${suffix}" 2>/dev/null || warn "default-folder copy failed for $suffix"
-            chmod 644 "$TELA_PLACES/default-folder${suffix}" 2>/dev/null || warn "default-folder chmod failed for $suffix"
-        done
-    fi
 done
 
 log "Configuring firewall"
@@ -389,17 +361,6 @@ NoNewPrivileges=yes
 RestrictSUIDSGID=yes
 ReadWritePaths=/etc/ssh /var/log /var/run/sshd /run/sshd
 SSHD_SVC
-
-mkdir -p /etc/systemd/system/NetworkManager.service.d
-cat > /etc/systemd/system/NetworkManager.service.d/hardened.conf << 'NM_SVC'
-[Service]
-ProtectSystem=strict
-ProtectHome=yes
-PrivateTmp=yes
-NoNewPrivileges=yes
-RestrictSUIDSGID=yes
-ReadWritePaths=/etc/NetworkManager /var/lib/NetworkManager /run/NetworkManager
-NM_SVC
 
 mkdir -p /etc/systemd/resolved.conf.d
 cat > /etc/systemd/resolved.conf.d/hardened.conf << 'RESOLVED'
